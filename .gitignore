@@ -1,0 +1,13 @@
+.env
+
+# Rust build artifacts
+/target/
+/**/*.rs.bk
+
+# SQLx ephemeral files
+sqlx-data.json
+
+# IDE/editor files
+.idea/
+.vscode/
+*.swp
