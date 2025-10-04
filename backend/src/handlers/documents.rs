@@ -1,5 +1,5 @@
-use crate::models::places::Place;
-use crate::schemas::places::{CreatePlace, UpdatePlace};
+use crate::models::documents::Document;
+use crate::schemas::documents::{CreateDocument, UpdateDocument};
 
 use axum::{
     Json,
@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use crate::AppState;
 
-const TABLE: &str = "places";
+const TABLE: &str = "documents";
 
 /**
  * List Items Handler
@@ -21,8 +21,10 @@ const TABLE: &str = "places";
 pub async fn items_list_handler(
     State(data): State<Arc<AppState>>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    let query = format!("SELECT * FROM {} ORDER BY name", TABLE);
-    let query_result = sqlx::query_as::<_, Place>(&query).fetch_all(&data.db).await;
+    let query = format!("SELECT * FROM {}", TABLE);
+    let query_result = sqlx::query_as::<_, Document>(&query)
+        .fetch_all(&data.db)
+        .await;
 
     if query_result.is_err() {
         let error_response = serde_json::json!({
@@ -50,7 +52,7 @@ pub async fn get_item_handler(
     State(data): State<Arc<AppState>>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
     let query = format!("SELECT * FROM {} WHERE id = $1", TABLE);
-    let query_result = sqlx::query_as::<_, Place>(&query)
+    let query_result = sqlx::query_as::<_, Document>(&query)
         .bind(id)
         .fetch_one(&data.db)
         .await;
@@ -79,11 +81,27 @@ pub async fn get_item_handler(
  */
 pub async fn create_item_handler(
     State(data): State<Arc<AppState>>,
-    Json(body): Json<CreatePlace>,
+    Json(body): Json<CreateDocument>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    let query = format!("INSERT INTO {} (name) VALUES ($1) RETURNING *", TABLE);
-    let query_result = sqlx::query_as::<_, Place>(&query)
-        .bind(body.name.to_string())
+    let query = format!(
+        r#"
+        INSERT INTO {}
+            (date, inventory_number, scan_number, page_number, notes, archive_id, institute_id, place_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING *
+    "#,
+        TABLE
+    );
+
+    let query_result = sqlx::query_as::<_, Document>(&query)
+        .bind(body.date)
+        .bind(body.inventory_number)
+        .bind(body.scan_number)
+        .bind(body.page_number)
+        .bind(body.notes)
+        .bind(body.archive_id)
+        .bind(body.institute_id)
+        .bind(body.place_id)
         .fetch_one(&data.db)
         .await;
     match query_result {
@@ -119,10 +137,10 @@ pub async fn create_item_handler(
 pub async fn edit_item_handler(
     Path(id): Path<i32>,
     State(data): State<Arc<AppState>>,
-    Json(body): Json<UpdatePlace>,
+    Json(body): Json<UpdateDocument>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
     let query = format!("SELECT * FROM {} WHERE id = $1", TABLE);
-    let query_result = sqlx::query_as::<_, Place>(&query)
+    let query_result = sqlx::query_as::<_, Document>(&query)
         .bind(id)
         .fetch_one(&data.db)
         .await;
@@ -137,13 +155,27 @@ pub async fn edit_item_handler(
 
     let item = query_result.unwrap();
 
-    let query = format!("UPDATE {} SET name = $1 WHERE id = $2 RETURNING *", TABLE);
-    let query_result = sqlx::query_as::<_, Place>(&query)
-        .bind(body.name.to_owned().unwrap_or(item.name))
-        .bind(id)
+    let query = format!(
+        r#"
+        INSERT INTO {}
+            (date, inventory_number, scan_number, page_number, notes, archive_id, institute_id, place_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING *
+    "#,
+        TABLE
+    );
+
+    let query_result = sqlx::query_as::<_, Document>(&query)
+        .bind(body.date.unwrap_or_else(|| chrono::Utc::now())) // provide default for required date
+        .bind(body.inventory_number.unwrap_or(item.inventory_number))
+        .bind(body.scan_number.unwrap_or(item.scan_number))
+        .bind(body.page_number.unwrap_or(item.page_number))
+        .bind(body.notes.unwrap_or(item.notes))
+        .bind(body.archive_id.unwrap_or(item.archive_id))
+        .bind(body.institute_id.unwrap_or(item.institute_id))
+        .bind(body.place_id.unwrap_or(item.place_id))
         .fetch_one(&data.db)
         .await;
-
     match query_result {
         Ok(item) => {
             let item_response = serde_json::json!({"status": "success","data": serde_json::json!({

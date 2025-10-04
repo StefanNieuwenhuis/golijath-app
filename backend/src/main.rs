@@ -53,6 +53,10 @@ async fn main() {
             routes::archives::get_routes(app_state.clone()),
         )
         .nest(
+            "/api/v1/documents",
+            routes::documents::get_routes(app_state.clone()),
+        )
+        .nest(
             "/api/v1/institutes",
             routes::institutes::get_routes(app_state.clone()),
         )

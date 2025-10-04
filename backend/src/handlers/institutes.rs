@@ -34,12 +34,12 @@ pub async fn items_list_handler(
         return Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)));
     }
 
-    let places = query_result.unwrap();
+    let items = query_result.unwrap();
 
     let json_response = serde_json::json!({
         "status": "success",
-        "results": places.len(),
-        "places": places
+        "results": items.len(),
+        "items": items
     });
     Ok(Json(json_response))
 }
