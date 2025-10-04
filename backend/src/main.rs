@@ -61,7 +61,16 @@ async fn main() {
             routes::places::get_routes(app_state.clone()),
         );
 
-    println!("🚀 Server started successfully");
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8000").await.unwrap();
+    let port: u16 = std::env::var("PORT")
+        .unwrap_or_else(|_| "8000".to_string()) // fallback for local dev
+        .parse()
+        .expect("PORT must be a number");
+
+    println!("🚀 Server starting on port {}", port);
+
+    let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))
+        .await
+        .unwrap();
+
     axum::serve(listener, app).await.unwrap();
 }
