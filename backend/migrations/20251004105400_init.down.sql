@@ -1,0 +1,9 @@
+-- Add down migration script here
+
+DROP TABLE IF EXISTS documents CASCADE;
+DROP TABLE IF EXISTS debug_log CASCADE;
+DROP TABLE IF EXISTS places CASCADE;
+DROP TABLE IF EXISTS archives CASCADE;
+DROP TABLE IF EXISTS institutes CASCADE;
+
+

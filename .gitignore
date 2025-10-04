@@ -1,9 +1,5 @@
 .env
 
-# Rust build artifacts
-/target/
-/**/*.rs.bk
-
 # SQLx ephemeral files
 sqlx-data.json
 
