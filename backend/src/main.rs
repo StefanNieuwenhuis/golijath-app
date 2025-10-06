@@ -5,23 +5,20 @@ mod schemas;
 
 use std::sync::Arc;
 
-use axum::{Json, Router, response::IntoResponse, routing::get};
+use axum::{
+    Router,
+    http::{
+        HeaderValue, Method,
+        header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
+    },
+    routing::get,
+};
 use dotenv::dotenv;
 use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
+use tower_http::cors::CorsLayer;
 
 pub struct AppState {
     db: Pool<Postgres>,
-}
-
-async fn health_checker_handler() -> impl IntoResponse {
-    const MESSAGE: &str = "Simple CRUD API with Rust, SQLX, Postgres,and Axum";
-
-    let json_response = serde_json::json!({
-        "status": "success",
-        "message": MESSAGE
-    });
-
-    Json(json_response)
 }
 
 #[tokio::main]
@@ -46,8 +43,18 @@ async fn main() {
     };
 
     let app_state = Arc::new(AppState { db: pool.clone() });
+
+    let frontend_origin =
+        std::env::var("FRONTEND_ORIGIN").unwrap_or_else(|_| "http://localhost:5173".to_string());
+
+    let cors = CorsLayer::new()
+        .allow_origin(frontend_origin.parse::<HeaderValue>().unwrap())
+        .allow_methods([Method::GET, Method::POST, Method::PATCH, Method::DELETE])
+        .allow_credentials(true)
+        .allow_headers([AUTHORIZATION, ACCEPT, CONTENT_TYPE]);
+
     let app = Router::new()
-        .route("/api/v1/healthcheck", get(health_checker_handler))
+        .nest("/api/v1/healthcheck", routes::health_check::get_routes())
         .nest(
             "/api/v1/archives",
             routes::archives::get_routes(app_state.clone()),
@@ -63,7 +70,8 @@ async fn main() {
         .nest(
             "/api/v1/places",
             routes::places::get_routes(app_state.clone()),
-        );
+        )
+        .layer(cors);
 
     let port: u16 = std::env::var("PORT")
         .unwrap_or_else(|_| "8000".to_string()) // fallback for local dev
