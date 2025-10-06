@@ -1,3 +1,4 @@
+use crate::db::AppState;
 use crate::models::places::Place;
 use crate::schemas::places::{CreatePlace, UpdatePlace};
 
@@ -10,8 +11,6 @@ use axum::{
 use serde_json::json;
 use std::sync::Arc;
 
-use crate::AppState;
-
 const TABLE: &str = "places";
 
 /**
@@ -22,7 +21,9 @@ pub async fn items_list_handler(
     State(data): State<Arc<AppState>>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
     let query = format!("SELECT * FROM {} ORDER BY name", TABLE);
-    let query_result = sqlx::query_as::<_, Place>(&query).fetch_all(&data.db).await;
+    let query_result = sqlx::query_as::<_, Place>(&query)
+        .fetch_all(data.pool())
+        .await;
 
     if query_result.is_err() {
         let error_response = serde_json::json!({
@@ -52,7 +53,7 @@ pub async fn get_item_handler(
     let query = format!("SELECT * FROM {} WHERE id = $1", TABLE);
     let query_result = sqlx::query_as::<_, Place>(&query)
         .bind(id)
-        .fetch_one(&data.db)
+        .fetch_one(data.pool())
         .await;
 
     match query_result {
@@ -84,7 +85,7 @@ pub async fn create_item_handler(
     let query = format!("INSERT INTO {} (name) VALUES ($1) RETURNING *", TABLE);
     let query_result = sqlx::query_as::<_, Place>(&query)
         .bind(body.name.to_string())
-        .fetch_one(&data.db)
+        .fetch_one(data.pool())
         .await;
     match query_result {
         Ok(item) => {
@@ -124,7 +125,7 @@ pub async fn edit_item_handler(
     let query = format!("SELECT * FROM {} WHERE id = $1", TABLE);
     let query_result = sqlx::query_as::<_, Place>(&query)
         .bind(id)
-        .fetch_one(&data.db)
+        .fetch_one(data.pool())
         .await;
 
     if query_result.is_err() {
@@ -141,7 +142,7 @@ pub async fn edit_item_handler(
     let query_result = sqlx::query_as::<_, Place>(&query)
         .bind(body.name.to_owned().unwrap_or(item.name))
         .bind(id)
-        .fetch_one(&data.db)
+        .fetch_one(data.pool())
         .await;
 
     match query_result {
@@ -171,7 +172,7 @@ pub async fn delete_item_handler(
     let query = format!("DELETE FROM {} WHERE id = $1", TABLE);
     let rows_affected = sqlx::query(&query)
         .bind(id) // $1
-        .execute(&data.db)
+        .execute(data.pool())
         .await
         .unwrap()
         .rows_affected();

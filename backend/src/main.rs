@@ -1,9 +1,8 @@
+mod db;
 mod handlers;
 mod models;
 mod routes;
 mod schemas;
-
-use std::sync::Arc;
 
 use axum::{
     Router,
@@ -11,39 +10,14 @@ use axum::{
         HeaderValue, Method,
         header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
     },
-    routing::get,
 };
 use dotenv::dotenv;
-use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
+use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 
-pub struct AppState {
-    db: Pool<Postgres>,
-}
+use db::AppState;
 
-#[tokio::main]
-async fn main() {
-    dotenv().ok();
-
-    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-
-    let pool = match PgPoolOptions::new()
-        .max_connections(10)
-        .connect(&database_url)
-        .await
-    {
-        Ok(pool) => {
-            println!("✅ Connection to the database is successful!");
-            pool
-        }
-        Err(err) => {
-            println!("🔥 Failed to connect to the database: {:?}", err);
-            std::process::exit(1);
-        }
-    };
-
-    let app_state = Arc::new(AppState { db: pool.clone() });
-
+pub fn create_app(app_state: Arc<AppState>) -> Router {
     let frontend_origin =
         std::env::var("FRONTEND_ORIGIN").unwrap_or_else(|_| "http://localhost:5173".to_string());
 
@@ -53,7 +27,7 @@ async fn main() {
         .allow_credentials(true)
         .allow_headers([AUTHORIZATION, ACCEPT, CONTENT_TYPE]);
 
-    let app = Router::new()
+    return Router::new()
         .nest("/api/v1/healthcheck", routes::health_check::get_routes())
         .nest(
             "/api/v1/archives",
@@ -72,6 +46,15 @@ async fn main() {
             routes::places::get_routes(app_state.clone()),
         )
         .layer(cors);
+}
+
+#[tokio::main]
+async fn main() {
+    dotenv().ok();
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+
+    let app_state = Arc::new(AppState::init(&database_url).await);
+    let app = create_app(app_state.clone());
 
     let port: u16 = std::env::var("PORT")
         .unwrap_or_else(|_| "8000".to_string()) // fallback for local dev

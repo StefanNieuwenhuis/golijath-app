@@ -1,3 +1,4 @@
+use crate::db::AppState;
 use crate::models::documents::Document;
 use crate::schemas::documents::{CreateDocument, UpdateDocument};
 
@@ -10,8 +11,6 @@ use axum::{
 use serde_json::json;
 use std::sync::Arc;
 
-use crate::AppState;
-
 const TABLE: &str = "documents";
 
 /**
@@ -23,7 +22,7 @@ pub async fn items_list_handler(
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
     let query = format!("SELECT * FROM {}", TABLE);
     let query_result = sqlx::query_as::<_, Document>(&query)
-        .fetch_all(&data.db)
+        .fetch_all(data.pool())
         .await;
 
     if query_result.is_err() {
@@ -54,7 +53,7 @@ pub async fn get_item_handler(
     let query = format!("SELECT * FROM {} WHERE id = $1", TABLE);
     let query_result = sqlx::query_as::<_, Document>(&query)
         .bind(id)
-        .fetch_one(&data.db)
+        .fetch_one(data.pool())
         .await;
 
     match query_result {
@@ -102,7 +101,7 @@ pub async fn create_item_handler(
         .bind(body.archive_id)
         .bind(body.institute_id)
         .bind(body.place_id)
-        .fetch_one(&data.db)
+        .fetch_one(data.pool())
         .await;
     match query_result {
         Ok(item) => {
@@ -142,7 +141,7 @@ pub async fn edit_item_handler(
     let query = format!("SELECT * FROM {} WHERE id = $1", TABLE);
     let query_result = sqlx::query_as::<_, Document>(&query)
         .bind(id)
-        .fetch_one(&data.db)
+        .fetch_one(data.pool())
         .await;
 
     if query_result.is_err() {
@@ -174,7 +173,7 @@ pub async fn edit_item_handler(
         .bind(body.archive_id.unwrap_or(item.archive_id))
         .bind(body.institute_id.unwrap_or(item.institute_id))
         .bind(body.place_id.unwrap_or(item.place_id))
-        .fetch_one(&data.db)
+        .fetch_one(data.pool())
         .await;
     match query_result {
         Ok(item) => {
@@ -203,7 +202,7 @@ pub async fn delete_item_handler(
     let query = format!("DELETE FROM {} WHERE id = $1", TABLE);
     let rows_affected = sqlx::query(&query)
         .bind(id) // $1
-        .execute(&data.db)
+        .execute(data.pool())
         .await
         .unwrap()
         .rows_affected();

@@ -1,4 +1,5 @@
 .env
+.env.test
 
 # SQLx ephemeral files
 sqlx-data.json
